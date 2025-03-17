@@ -1,11 +1,11 @@
 import cv2
 import pandas as pd
 import os
-import ratina
-import blink
-import face
-import lipMovement
-import lipWrinkle
+from feature import ratina
+from feature import blink
+from feature import face
+from feature import lipMovement
+from feature import lipWrinkle
 
 def extract_features(video_path, label):
     try:
