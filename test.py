@@ -29,7 +29,8 @@ def predict_video(video_path):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python test.py <video_path>")
+        print("Usage: python test.py <video_path>") # to run this  file write this command 
+        #if you not change any file name write in terminal "python test.py video.mp4"
         sys.exit(1)
     
     video_path = sys.argv[1]
