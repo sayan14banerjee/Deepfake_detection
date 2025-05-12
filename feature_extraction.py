@@ -1,20 +1,23 @@
 import cv2
 import pandas as pd
 import os
+from multiprocessing import Pool, cpu_count
 from feature import ratina
 from feature import blink
 from feature import face
 from feature import lipMovement
 from feature import lipWrinkle
 
-def extract_features(video_path, label):
+
+def extract_features(args):
+    video_path, label = args
     try:
         avg_ratio = ratina.ratina_distance(video_path)
         total_blinks, blink_rate = blink.count_blinks(video_path)
         face_ratio, face_fake = face.face_movement(video_path)
         avg_lip_ratio = lipMovement.lip_movement(video_path)
         wrinkle_ratio = lipWrinkle.wrinkle(video_path)
-        
+
         data = {
             "Video Path": video_path,
             "Label": label,
@@ -26,40 +29,52 @@ def extract_features(video_path, label):
             "Avg Lip Movement Ratio": avg_lip_ratio,
             "Lip Wrinkle Ratio": wrinkle_ratio
         }
+        print(f"[✔] Processed: {os.path.basename(video_path)}")
         return data
     except Exception as e:
-        print(f"Error processing {video_path}: {e}")
+        print(f"[✘] Error processing {video_path}: {e}")
         return None
 
-def process_folder(folder_path, label, results):
+
+def gather_video_paths(folder_path, label):
     if not os.path.exists(folder_path):
-        print(f"Folder not found: {folder_path}")
-        return
-    
-    video_files = [f for f in os.listdir(folder_path) if f.endswith(('.mp4', '.avi', '.mov'))]
-    
-    for video in video_files:
-        video_path = os.path.join(folder_path, video)
-        print(f"Processing: {video_path}")
-        data = extract_features(video_path, label)
-        if data:
-            results.append(data)
+        print(f"[!] Folder not found: {folder_path}")
+        return []
+
+    video_files = [
+        os.path.abspath(os.path.join(folder_path, f))
+        for f in os.listdir(folder_path)
+        if f.lower().endswith(('.mp4', '.avi', '.mov'))
+    ]
+    return [(video, label) for video in video_files]
+
 
 if __name__ == "__main__":
-    real_videos_folder = "real"  # Replace with actual folder path
-    fake_videos_folder = "fake"  # Replace with actual folder path
+    real_videos_folder = "real"
+    fake_videos_folder = "fake"
     output_csv = os.path.join(os.getcwd(), "features.csv")
-    
+
+    # Collect tasks
+    all_tasks = []
+    all_tasks.extend(gather_video_paths(real_videos_folder, "Real"))
+    all_tasks.extend(gather_video_paths(fake_videos_folder, "Fake"))
+
+    print(f"[i] Total videos to process: {len(all_tasks)}")
+
     results = []
-    process_folder(real_videos_folder, "Real", results)
-    process_folder(fake_videos_folder, "Fake", results)
-    
-    if results:
-        df = pd.DataFrame(results)
+    if all_tasks:
+        with Pool(cpu_count()) as pool:
+            results = pool.map(extract_features, all_tasks)
+
+    # Filter out None results
+    valid_results = [r for r in results if r]
+
+    if valid_results:
+        df = pd.DataFrame(valid_results)
         try:
             df.to_csv(output_csv, index=False)
-            print(f"Feature extraction complete. Results saved to: {output_csv}")
+            print(f"\n[✓] Feature extraction complete. Results saved to: {output_csv}")
         except PermissionError:
-            print(f"Permission denied: Unable to write to {output_csv}. Close the file if open and try again.")
+            print(f"\n[✘] Permission denied: Unable to write to {output_csv}. Close the file if open and try again.")
     else:
-        print("No valid videos processed.")
+        print("\n[!] No valid videos processed.")

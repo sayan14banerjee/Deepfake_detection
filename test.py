@@ -10,7 +10,7 @@ def predict_video(video_path):
     print(f"Processing video: {video_path}")
     
     # Extract features from the new video
-    features = extract_features(video_path, "Unknown")
+    features = extract_features(video_path)
     
     if features is None:
         print("Error extracting features. Check the video file.")
