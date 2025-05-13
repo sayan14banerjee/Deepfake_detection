@@ -8,7 +8,6 @@ from feature import face
 from feature import lipMovement
 from feature import lipWrinkle
 
-
 def extract_features(args):
     video_path, label = args
     try:
@@ -35,7 +34,6 @@ def extract_features(args):
         print(f"[✘] Error processing {video_path}: {e}")
         return None
 
-
 def gather_video_paths(folder_path, label):
     if not os.path.exists(folder_path):
         print(f"[!] Folder not found: {folder_path}")
@@ -48,33 +46,43 @@ def gather_video_paths(folder_path, label):
     ]
     return [(video, label) for video in video_files]
 
+def load_processed_paths(csv_path):
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        return set(df["Video Path"].tolist())
+    return set()
 
 if __name__ == "__main__":
     real_videos_folder = "real"
     fake_videos_folder = "fake"
     output_csv = os.path.join(os.getcwd(), "features.csv")
+    batch_size = 20
 
-    # Collect tasks
     all_tasks = []
     all_tasks.extend(gather_video_paths(real_videos_folder, "Real"))
     all_tasks.extend(gather_video_paths(fake_videos_folder, "Fake"))
 
-    print(f"[i] Total videos to process: {len(all_tasks)}")
+    already_done = load_processed_paths(output_csv)
+    tasks_to_run = [task for task in all_tasks if task[0] not in already_done]
 
-    results = []
-    if all_tasks:
-        with Pool(cpu_count()) as pool:
-            results = pool.map(extract_features, all_tasks)
+    print(f"[i] Total videos: {len(all_tasks)}")
+    print(f"[i] Already processed: {len(already_done)}")
+    print(f"[i] Remaining to process: {len(tasks_to_run)}")
 
-    # Filter out None results
-    valid_results = [r for r in results if r]
+    if tasks_to_run:
+        for i in range(0, len(tasks_to_run), batch_size):
+            batch = tasks_to_run[i:i+batch_size]
+            with Pool(cpu_count()) as pool:
+                batch_results = pool.map(extract_features, batch)
 
-    if valid_results:
-        df = pd.DataFrame(valid_results)
-        try:
-            df.to_csv(output_csv, index=False)
-            print(f"\n[✓] Feature extraction complete. Results saved to: {output_csv}")
-        except PermissionError:
-            print(f"\n[✘] Permission denied: Unable to write to {output_csv}. Close the file if open and try again.")
+            valid_batch = [r for r in batch_results if r]
+
+            if valid_batch:
+                df_batch = pd.DataFrame(valid_batch)
+                if os.path.exists(output_csv):
+                    df_batch.to_csv(output_csv, mode='a', header=False, index=False)
+                else:
+                    df_batch.to_csv(output_csv, index=False)
+            print(f"[✓] Saved batch {i//batch_size + 1}")
     else:
-        print("\n[!] No valid videos processed.")
+        print("[✓] All videos already processed.")
