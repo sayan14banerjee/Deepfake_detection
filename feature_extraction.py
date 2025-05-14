@@ -1,5 +1,5 @@
-import cv2
-import pandas as pd
+import cv2 # type: ignore
+import pandas as pd # type: ignore
 import os
 from multiprocessing import Pool, cpu_count
 from feature import ratina
