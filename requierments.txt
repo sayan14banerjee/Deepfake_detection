@@ -6,3 +6,5 @@ jupyter
 mediapipe
 matplotlib
 tensorflow
+joblib
+seaborn
